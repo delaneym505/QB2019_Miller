@@ -1,4 +1,9 @@
 ---
+output:
+  pdf_document: default
+  html_document: default
+---
+j---
 title: '3\. Worksheet: Basic R'
 author: "Delaney Miller; Z620: Quantitative Biodiversity, Indiana University"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
@@ -48,9 +53,9 @@ In the R code chunk below, please provide the code to:
 3) set your working directory to your '3.RStudio' folder. 
 
 ```{r}
-
-
-
+rm(list=ls())
+getwd()
+setwd("~/QB2019_Miller/2.Worksheets/3.RStudio")
 ```
 
 ## 3) USING R AS A CALCULATOR
@@ -159,7 +164,7 @@ m2 <- c(rnorm(5, mean=25, sd=10))
 What do the arguments in this function specify? 
 Remember to use `help()` or type `?rnorm`.
 
-> Answer 1:
+> Answer 1:It randomly generates a normal distribution with the designated mean and standard deviation (sd) specified as arguments of the fucntion rnorm()
 
 
 In the R code chunk below, do the following: 
@@ -168,15 +173,17 @@ In the R code chunk below, do the following:
 3) Determine the dimensions of the transposed matrix.
 
 ```{r}
-
-
-
+setwd("~/QB2019_Miller/2.Worksheets/3.RStudio/data")
+data=read.table("matrix.txt", header=FALSE)
+data
+t(data)
+dim(data)
 ```
 
 
 ***Question 2***: What are the dimensions of the matrix you just transposed?
 
-> Answer 2:
+> Answer 2: 10 rows, 5 columns
 
 
 ###Indexing a Matrix
@@ -186,7 +193,8 @@ In the R code chunk below, do the following:
 2) Remove the last row of matrix `m`.
 
 ```{r}
-
+data[,-3]
+data[-10,]
 
 ```
 
@@ -198,7 +206,9 @@ In the R code chunk below, do the following:
 2) Display the structure of this data set.
 
 ```{r}
-
+setwd("~/QB2019_Miller/2.Worksheets/3.RStudio/data")
+meso <- read.table("zoop_nuts.txt", header=TRUE)
+str(meso)
 
 ```
 
@@ -210,7 +220,9 @@ In the R-code chunk below, do the following:
 3) Conduct a simple **Pearson's correlation** analysis.
 
 ```{r}
-
+meso.num <- meso[,3:8]
+pairs(meso.num)
+cor1 <- cor(meso.num)
 
 ```
 
@@ -218,7 +230,7 @@ In the R-code chunk below, do the following:
 ***Question 3***: Describe some of the general features based on the visualization and correlation analysis above?
 
 > Answer 3:
-
+Some positive correlations include TP and TN, TN and SRP, and TN and TIN. Factors such as TN appear to explain a lot of variation in the other categories, whereas one like CHLA does not show a correlation with other variables. 
 
 In the R code chunk below, do the following:
 1) Redo the correlation analysis using the `corr.test()` function in the `psych` package with the following options: method = "pearson", adjust = "BH".
@@ -226,8 +238,22 @@ In the R code chunk below, do the following:
 3) Use the print command from the handout to see the results of each correlation analysis.
 
 ```{r}
-
-
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+install.packages("psych")
+require("psych")
+#pearson's correlation test
+cor2<- corr.test(meso.num, method="pearson", adjust = "BH")
+#kendall's correlation test
+cor3 <- corr.test(meso.num, method="kendall", adjust="BH")
+#print correlation coefficients
+print(cor2, digits=3)
+print(cor3, digits=3)
+#visualize data
+install.packages("corrplot") #install package
+require("corrplot")
+corrplot(cor1, method="ellipse")
 
 ```
 
@@ -238,7 +264,10 @@ When should one use non-parametric methods instead of parametric methods?
 With the Pearson's method, is there evidence for false discovery rate due to multiple comparisons? 
 Why is false discovery rate important?
 
-> Answer 4: 
+> Answer 4: Yes, using parametric vs non-parametric methods will skew the magnitude of the correlations.
+Non-parametric methods should be used if you have a small sample size or if your data doesn't follow a normal distribution (i.e. has a long tail or is heavily skewed by outliers)
+Any test has the risk of some false discovery rate, but this is hopefully mitigated by adjusting for multiple tests (adjust="BH")
+False discovery rates are important because they assign signficance to correlations or interactions which are not. 
 
 ### Linear Regression
 
@@ -248,11 +277,20 @@ In the R code chunk below, do the following:
 3) Produce a plot of this regression analysis including the following: categorically labeled points, the predicted regression line with 95% confidence intervals, and the appropriate axis labels.
 
 ```{r}
-
-
-
-
-
+#linear regression
+fitreg<-lm(ZP~ TN, data=meso)
+summary(fitreg)
+#plot
+plot (meso$TN, meso$ZP, ylim=c(0,10), xlim=c(500,5000), xlab=expression(paste("Total Nitrogen (",mu,"g/L)")), ylab="Zooplankton Biomass (mg/L)", las=1)
+text(meso$TN, meso$ZP, meso$NUTS, pos=3, cex = 0.8)
+newTN<- seq(min(meso$TN), max(meso$TN), 10)
+regline <- predict(fitreg, newdata=data.frame(TN =newTN))
+lines(newTN,regline)
+conf95<- predict(fitreg, newdata=data.frame(TN =newTN), interval =c("confidence"), level=0.95, type="response")
+matlines(newTN, conf95[,c("lwr", "upr")], type="l", lty=2, lwd=1, col="black")
+#residuals
+par(mfrow=c(2,2), mar=c(5.1,4.1,4.1,2.1))
+plot(fitreg)
 
 
 ```
@@ -260,10 +298,9 @@ In the R code chunk below, do the following:
 ***Question 5***: Interpret the results from the regression model
 
 > Answer 5:
-
+There is a positive correlation between total nitrogen and zooplankton mass. 
 
 ```{r}
-
 ```
 
 ### Analysis of Variance (ANOVA)
@@ -277,12 +314,25 @@ Using the R code chunk below, do the following:
 
 ```{r}
 
-
-
-
-
-
-
+#order nutrient treatments
+NUTS<-factor(meso$NUTS, levels=c('L', 'M', 'H'))
+zp.means<-tapply(meso$ZP, NUTS, mean)
+sem<-function(x){
+sd(na.omit(x))/sqrt(length(na.omit(x)))
+}
+zp.sem<-tapply(meso$ZP, NUTS, sem)
+#plot
+bp<-barplot(zp.means, ylim=c(0, round(max(meso$ZP), digits=0)),
+            pch=15, cex=1.25, las=1, cex.lab=1.4, cex.axis=1.25, xlab="nutrient supply", ylab="zooplankton biomass   (mg/L", names.arg=c("low", "medium", "high"))
+#error bars
+arrows(x0=bp, y0=zp.means, y1=zp.means-zp.sem, angle=90, length=0.1, lwd=1)
+arrows(x0=bp, y0=zp.means, y1=zp.means+zp.sem, angle=90, length=0.1, lwd=1)
+#ANOVA
+fitanova<-aov(ZP~ NUTS, data=meso)
+summary(fitanova)
+TukeyHSD(fitanova)
+par(mfrow=c(2,2), mar=c(5.1,4.1,4.1,2.1))
+plot(fitanova)
 ```
 
 ## SYNTHESIS: SITE-BY-SPECIES MATRIX
@@ -313,10 +363,20 @@ The remaining columns of data refer to the biomass (µg/L) of different zooplank
 Describe what you learned below in the "Answer" section and include appropriate code in the R chunk.
 
 ```{r}
+setwd("~/QB2019_Miller/2.Worksheets/3.RStudio/data")
+data2 <-read.table("zoops.txt", header=TRUE)
+str(data2)
+data3=data2[,3:9]
+#plot
+data3$totalAb = rowSums(data3)
 
-
-
-
+install.packages("reshape2")
+library("reshape2")
+require(reshape2)
+data3.long= melt(data3)
+data3.long
+plot(data3.long, xlab= "Species ID", ylab= "Abundance")
+#The genus Simocephallus explains most of the biomass response to nutrient enrichment. 
 ```
 
 ## SUBMITTING YOUR WORKSHEET
